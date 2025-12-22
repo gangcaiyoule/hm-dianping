@@ -49,7 +49,7 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
     public Result queryById(Long id) {
         // 缓存穿透
         // queryWithPassThrough(id);
-        cacheClient.queryWithPassThrough(CACHE_SHOP_KEY, (x) -> getById(x), CACHE_SHOP_TTL, TimeUnit.MINUTES, id, Shop.class);
+        // cacheClient.queryWithPassThrough(CACHE_SHOP_KEY, (x) -> getById(x), CACHE_SHOP_TTL, TimeUnit.MINUTES, id, Shop.class);
         // 用逻辑缓存来解决缓存击穿
         // Shop shop = queryWithLogicExpire(id);
         Shop shop = cacheClient.queryWithLogicExpire(id, CACHE_SHOP_KEY, LOCK_SHOP_KEY, this::getById, Shop.class, CACHE_SHOP_TTL, TimeUnit.MINUTES);

@@ -22,12 +22,16 @@ public class RedisIdWorker {
     @Resource
     private StringRedisTemplate stringRedisTemplate;
 
+    /**
+     * 生成订单号
+     * @param prefix
+     * @return
+     */
     public long nextId(String prefix) {
         // 时间戳部分
         long timeStamp = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC);
         long stamp = BEGIN_TIMESTAMP - timeStamp;
         // 序列号部分
-
         String date = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy:MM:dd"));
         String key = "icr:" + prefix + date;
         long count = stringRedisTemplate.opsForValue().increment(key);

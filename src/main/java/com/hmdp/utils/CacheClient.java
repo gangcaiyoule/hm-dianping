@@ -104,7 +104,7 @@ public class CacheClient {
         String Json = stringRedisTemplate.opsForValue().get(key);
         //是否查询到
         if (StrUtil.isBlank(Json)) {
-            return null;
+             return null;
         }
         // 查到了
         // 反序列化
@@ -112,7 +112,7 @@ public class CacheClient {
         LocalDateTime expireTime = redisData.getExpireTime();
         R data = JSONUtil.toBean((JSONObject) redisData.getData(), type);
         // 查看是否过期
-        if (expireTime.isAfter(LocalDateTime.now())) {
+        if (!expireTime.isBefore(LocalDateTime.now())) {
             //没过期
             return data;
         }
@@ -140,7 +140,7 @@ public class CacheClient {
      * @param key
      * @return
      */
-    private boolean tryLock(String key) {
+    public boolean tryLock(String key) {
         Boolean b = stringRedisTemplate.opsForValue().setIfAbsent(key, "1", 10, TimeUnit.SECONDS);
         // 这里直接return b不行，b为Boolean包装类型，直接return会自动拆箱，执行return b.booleanValue();而b可能为true, false, null(空指针报错)
         return BooleanUtil.isTrue(b);
@@ -150,7 +150,7 @@ public class CacheClient {
      * 释放锁
      * @param key
      */
-    private void unLock(String key) {
+    public void unLock(String key) {
         stringRedisTemplate.delete(key);
     }
 
