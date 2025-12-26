@@ -28,7 +28,7 @@ public class RefreshTokenInterceptor implements HandlerInterceptor {
         String token = request.getHeader("authorization");
         // 判断是否空白(null、""、"  ")
         if (StrUtil.isBlank(token)) {
-            return true ;
+            return true;
         }
         // 用token获取redis对象
         String tokenKey = LOGIN_USER_KEY + token;

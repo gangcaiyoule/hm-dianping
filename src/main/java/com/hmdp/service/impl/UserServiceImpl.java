@@ -48,9 +48,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             log.info("手机号格式不正确");
             return Result.fail("手机号格式不正确");
         }
-        //生成验证码
+        // 生成验证码
         String code = RandomUtil.randomNumbers(6);
-        //session保存验证码
+        // session保存验证码
         stringRedisTemplate.opsForValue().set(LOGIN_CODE_KEY + phone, code, LOGIN_CODE_TTL, TimeUnit.MINUTES);
         // session.setAttribute("code", code);
         log.info("发送验证码成功: sessionId = {}, code = {}", session.getId(), code);
