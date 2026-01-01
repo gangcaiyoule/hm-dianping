@@ -42,4 +42,18 @@ public interface IBlogService extends IService<Blog> {
      * @return
      */
     Result queryBlogLikes(Long id);
+
+    /**
+     * 保存博客
+     * @param blog
+     * @return
+     */
+    Result saveBlog(Blog blog);
+
+    /**
+     * 分页查询关注的博主的最新博客
+     * @return
+     */
+    Result queryBlogOfFollow(Long max, Integer offset);
+
 }
