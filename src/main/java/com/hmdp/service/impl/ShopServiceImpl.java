@@ -4,6 +4,7 @@ import cn.hutool.core.util.BooleanUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.hmdp.dto.Result;
 import com.hmdp.entity.Shop;
@@ -12,13 +13,20 @@ import com.hmdp.service.IShopService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.utils.CacheClient;
 import com.hmdp.utils.RedisData;
+import com.hmdp.utils.SystemConstants;
+import org.springframework.data.geo.Distance;
+import org.springframework.data.geo.GeoResult;
+import org.springframework.data.geo.GeoResults;
+import org.springframework.data.redis.connection.RedisGeoCommands;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.domain.geo.GeoReference;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 
 import java.time.LocalDateTime;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -211,6 +219,88 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
         stringRedisTemplate.delete(key);
         return Result.ok();
     }
+
+    /**
+     * 店铺查询
+     * @param typeId
+     * @param current
+     * @param x
+     * @param y
+     * @return
+     */
+
+    @Override
+    public Result queryShopByType(Integer typeId, Integer current, Double x, Double y) {
+
+        // 1. 如果没有传坐标，走普通分页查询
+        if (x == null || y == null) {
+            Page<Shop> page = query()
+                    .eq("type_id", typeId)
+                    .page(new Page<>(current, SystemConstants.DEFAULT_PAGE_SIZE));
+            return Result.ok(page.getRecords());
+        }
+
+        // 2. 有坐标，走 GEO 查询
+        int pageSize = SystemConstants.DEFAULT_PAGE_SIZE;
+        int from = (current - 1) * pageSize;
+        int end = current * pageSize;
+
+        // 3. Redis GEO 查询
+        String key = SHOP_GEO_KEY + typeId;
+        GeoResults<RedisGeoCommands.GeoLocation<String>> results =
+                stringRedisTemplate.opsForGeo()
+                        .search(
+                                key,
+                                GeoReference.fromCoordinate(x, y),
+                                new Distance(5000), // 5km 范围
+                                RedisGeoCommands.GeoSearchCommandArgs.newGeoSearchArgs()
+                                        .includeDistance()
+                                        .limit(end)
+                        );
+
+        // 4. 判空
+        if (results == null) {
+            return Result.ok(Collections.emptyList());
+        }
+
+        // 5. 解析 shopId 和 distance
+        List<GeoResult<RedisGeoCommands.GeoLocation<String>>> content =
+                results.getContent();
+
+        if (content.size() <= from) {
+            return Result.ok(Collections.emptyList());
+        }
+
+        List<Long> shopIds = new ArrayList<>(content.size());
+        Map<Long, Distance> distanceMap = new HashMap<>();
+
+        content.stream()
+                .skip(from)
+                .forEach(result -> {
+                    String shopIdStr = result.getContent().getName();
+                    Long shopId = Long.valueOf(shopIdStr);
+                    shopIds.add(shopId);
+                    distanceMap.put(shopId, result.getDistance());
+                });
+
+        // 6. 根据 shopId 查询数据库（保持顺序）
+        String idStr = StrUtil.join(",", shopIds);
+        List<Shop> shops = query()
+                .in("id", shopIds)
+                .last("ORDER BY FIELD(id," + idStr + ")")
+                .list();
+
+        // 7. 封装距离信息
+        for (Shop shop : shops) {
+            Distance distance = distanceMap.get(shop.getId());
+            if (distance != null) {
+                shop.setDistance(distance.getValue());
+            }
+        }
+
+        return Result.ok(shops);
+    }
+
 
     /**
      * 存redis
