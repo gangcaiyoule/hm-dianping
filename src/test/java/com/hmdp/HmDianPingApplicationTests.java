@@ -89,4 +89,20 @@ class HmDianPingApplicationTests {
             stringRedisTemplate.opsForGeo().add(key, locations);
         }
     }
+
+    @Test
+    void testHyperLogLog() {
+        String[] str = new String[1000];
+        int j;
+        for (int i = 0; i < 1000000; i++) {
+            j = i % 1000;
+            str[j] = "user_" + i;
+            if (j == 999) {
+                stringRedisTemplate.opsForHyperLogLog().add("hl2", str);
+            }
+        }
+        // 统计
+        Long count = stringRedisTemplate.opsForHyperLogLog().size("hl2");
+        System.out.println("count: " + count);
+    }
 }
